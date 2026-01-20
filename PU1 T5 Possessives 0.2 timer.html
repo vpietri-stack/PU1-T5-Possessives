@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Possessive Adjectives Game 0.3</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #f0f8ff;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+  }
+  #game, #results {
+    max-width: 600px;
+    margin: auto;
+    padding: 20px;
+  }
+  #top-bar {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+  #question {
+    font-size: 1.8em;
+    margin: 20px 0;
+  }
+  .answer-btn {
+    display: inline-block;
+    margin: 8px;
+    padding: 18px 28px;
+    font-size: 1.5em;
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    background-color: #87cefa;
+    color: white;
+  }
+  .answer-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  #next-btn {
+    display: none;
+    margin-top: 15px;
+    padding: 12px 24px;
+    font-size: 1.2em;
+    background-color: #32cd32;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+  #feedback {
+    margin-top: 15px;
+    min-height: 50px;
+    font-size: 1.2em;
+  }
+  #results button {
+    padding: 10px 20px;
+    font-size: 1.1em;
+    background-color: #ff8c00;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+
+<div id="game">
+  <div id="top-bar">
+    <div id="timer">Time: 60s</div>
+    <div id="score">Score: 0</div>
+  </div>
+  <p id="question"></p>
+  <div id="answers"></div>
+  <div id="feedback"></div>
+  <button id="next-btn">Next</button>
+</div>
+
+<div id="results" style="display:none;"></div>
+
+<!-- Built-in short tones -->
+<audio id="correct-sound" preload="auto"
+  src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="></audio>
+<audio id="wrong-sound" preload="auto"
+  src="data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="></audio>
+
+<script>
+let subjects = [
+  "I","You","We","They","He","She",
+  "Harry","Cameron","Rocky","Jim","Dad","Grandpa",
+  "Gracie","Shelly","Henrietta","Jenny","Mum","Grandma",
+  "Harry and Gracie","Mum and Dad","Shelly and Jenny"
+];
+
+let objects = [
+  "kite","doll","ball","car","plane","computer","mouse","keyboard",
+  "board game","house","bike","robot","balloon","box","helicopter",
+  "radio","teddy bear","ship"
+];
+
+let possessives = ["my","your","his","her","our","their"];
+
+let score = 0;
+let totalQuestions = 0;
+let correctAnswers = 0;
+let timer = 60;
+let timerInterval;
+let currentRound = {};
+
+function startTimer() {
+  timer = 60;
+  document.getElementById("timer").textContent = `Time: ${timer}s`;
+  timerInterval = setInterval(() => {
+    timer--;
+    document.getElementById("timer").textContent = `Time: ${timer}s`;
+    if (timer <= 0) {
+      clearInterval(timerInterval);
+      endGame();
+    }
+  }, 1000);
+}
+
+function generateRound() {
+  document.getElementById("feedback").innerHTML = "";
+  document.getElementById("next-btn").style.display = "none";
+  document.getElementById("answers").innerHTML = "";
+
+  let subj = subjects[Math.floor(Math.random() * subjects.length)];
+  let obj = objects[Math.floor(Math.random() * objects.length)];
+  let correct;
+
+  const feminineNames = ["Gracie","Shelly","Henrietta","Jenny","Mum","Grandma","She"];
+  const masculineNames = ["Harry","Cameron","Rocky","Jim","Dad","Grandpa","He"];
+
+  if (subj === "I") correct = "my";
+  else if (subj === "You") correct = "your";
+  else if (subj === "We") correct = "our";
+  else if (subj === "They" || subj.includes(" and ")) correct = "their";
+  else if (feminineNames.includes(subj)) correct = "her";
+  else if (masculineNames.includes(subj)) correct = "his";
+  else correct = "my";
+
+  let verb = (["I","You","We","They"].includes(subj) || subj.includes(" and ")) ? "have got" : "has got";
+
+  currentRound = { subj, obj, correct };
+
+  document.getElementById("question").textContent =
+    `${subj} ${verb} a ${obj}. It's ... ${obj}.`;
+
+  // Pick 3 answers including the correct one
+  let options = [correct];
+  let others = possessives.filter(p => p !== correct);
+  while (options.length < 3) {
+    let choice = others.splice(Math.floor(Math.random() * others.length), 1)[0];
+    options.push(choice);
+  }
+  options.sort(() => Math.random() - 0.5);
+
+  options.forEach(p => {
+    let btn = document.createElement("button");
+    btn.textContent = p;
+    btn.className = "answer-btn";
+    btn.onclick = () => checkAnswer(p);
+    document.getElementById("answers").appendChild(btn);
+  });
+}
+
+function checkAnswer(selected) {
+  const correctSound = document.getElementById("correct-sound");
+  const wrongSound = document.getElementById("wrong-sound");
+
+  const feminineNames = ["Gracie","Shelly","Henrietta","Jenny","Mum","Grandma","She"];
+  const masculineNames = ["Harry","Cameron","Rocky","Jim","Dad","Grandpa","He"];
+
+  let extraExplanation = "";
+  if (currentRound.subj.includes(" and ")) {
+    const [n1, n2] = currentRound.subj.split(" and ");
+    extraExplanation = `${n1} + ${n2} = They`;
+  } else if (feminineNames.includes(currentRound.subj)) {
+    extraExplanation = `${currentRound.subj} = She`;
+  } else if (masculineNames.includes(currentRound.subj)) {
+    extraExplanation = `${currentRound.subj} = He`;
+  }
+
+  totalQuestions++;
+
+  let chineseFeedback;
+  if (selected === currentRound.correct) {
+    score++;
+    correctAnswers++;
+    chineseFeedback = `✅ 正确！我们使用 "${currentRound.correct}"，因为 "${currentRound.subj}" 拥有这个 ${currentRound.obj}。`;
+    correctSound.play();
+  } else {
+    chineseFeedback = `❌ 错误。正确答案是 "${currentRound.correct}"，因为 "${currentRound.subj}" 拥有这个 ${currentRound.obj}。`;
+    wrongSound.play();
+  }
+
+  document.getElementById("feedback").innerHTML =
+    chineseFeedback + (extraExplanation ? `<br><small>${extraExplanation}</small>` : "");
+
+  document.getElementById("score").textContent = `Score: ${score}`;
+  document.querySelectorAll(".answer-btn").forEach(btn => btn.disabled = true);
+  document.getElementById("next-btn").style.display = "inline-block";
+}
+
+function endGame() {
+  document.getElementById("game").style.display = "none";
+  const results = document.getElementById("results");
+  results.innerHTML = `
+    <h2>Great job!</h2>
+    <p>Score: ${score}</p>
+    <p>Correct answers: ${correctAnswers} / ${totalQuestions}</p>
+    <button id="play-again">Play again?</button>
+  `;
+  results.style.display = "block";
+
+  document.getElementById("play-again").onclick = () => {
+    score = 0;
+    totalQuestions = 0;
+    correctAnswers = 0;
+    document.getElementById("score").textContent = `Score: ${score}`;
+    results.style.display = "none";
+    document.getElementById("game").style.display = "block";
+    startTimer();
+    generateRound();
+  };
+}
+
+document.getElementById("next-btn").onclick = generateRound;
+
+startTimer();
+generateRound();
+</script>
+
+</body>
+</html>
